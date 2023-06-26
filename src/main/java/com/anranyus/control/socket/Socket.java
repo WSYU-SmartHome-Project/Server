@@ -1,6 +1,7 @@
 package com.anranyus.control.socket;
 
 import com.anranyus.control.entity.Rest;
+import com.anranyus.control.pool.DevicePool;
 import com.google.gson.Gson;
 import jakarta.annotation.Nonnull;
 import org.springframework.web.bind.annotation.ResponseBody;
@@ -16,9 +17,9 @@ public class Socket extends TextWebSocketHandler {
 
     @Override
     public void afterConnectionEstablished(@Nonnull WebSocketSession session) throws Exception {
-        String message = gson.toJson(new Rest( CONNECTED,"连接完成",true));
+        String message = gson.toJson(new Rest( CONNECTED,"连接完成",true,Rest.DEVICE_TYPE_SERVER));
         session.sendMessage(new TextMessage(message));
-    }g
+    }
 
     @Override
     protected void handleTextMessage(@Nonnull WebSocketSession session,@Nonnull TextMessage message) throws Exception {
@@ -27,14 +28,30 @@ public class Socket extends TextWebSocketHandler {
         try {
             rest = gson.fromJson(message.getPayload(),Rest.class);
             if (rest.getCommand()!= CONNECTED){//连接完成
-                Rest commend = new Rest(rest.command, "执行" + rest.getMessage(), true);
-                session.sendMessage(new TextMessage(gson.toJson(commend)));
+                Rest command = new Rest(rest.command, rest.getMessage(), true,rest.getType());
+                if (rest.getType() == Rest.DEVICE_TYPE_CONTROL){
+                    //信息来自控制器，应该转发给客户端
+                    DevicePool.CLIENT.sendMessage(new TextMessage(gson.toJson(command)));
+
+                }else if (rest.getType() == Rest.DEVICE_TYPE_CLIENT){
+
+                    //信息来自客户端，返回执行结果
+                    DevicePool.CONTROL.sendMessage(new TextMessage(gson.toJson(command)));
+                }
+
+            }else {
+                //进行连接初始化
+                if (rest.getType()==Rest.DEVICE_TYPE_CLIENT){
+                    DevicePool.CLIENT = session;
+                }else {
+                    DevicePool.CONTROL = session;
+                }
             }
 
 
         }catch (Exception e){
             e.printStackTrace();
-            session.sendMessage(new TextMessage(gson.toJson(Rest.fail(400,"格式错误"))));
+            session.sendMessage(new TextMessage(gson.toJson(Rest.fail(400,"格式错误",Rest.DEVICE_TYPE_SERVER))));
         }
 
     }
