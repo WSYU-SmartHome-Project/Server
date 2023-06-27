@@ -49,9 +49,13 @@ public class Socket extends TextWebSocketHandler {
             }
 
 
-        }catch (Exception e){
+        }catch (NullPointerException e){
             e.printStackTrace();
-            session.sendMessage(new TextMessage(gson.toJson(Rest.fail(400,"格式错误",Rest.DEVICE_TYPE_SERVER))));
+            session.sendMessage(new TextMessage(gson.toJson(Rest.fail(400,"设备未连接:"+e.getMessage(),Rest.DEVICE_TYPE_SERVER))));
+
+        } catch (Exception e){
+            e.printStackTrace();
+            session.sendMessage(new TextMessage(gson.toJson(Rest.fail(400,"错误:"+e.getMessage(),Rest.DEVICE_TYPE_SERVER))));
         }
 
     }
